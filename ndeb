@@ -1,0 +1,300 @@
+#!/bin/bash
+set -eo pipefail
+OS=$(uname)
+
+case $OS in
+  'Linux')
+    OS='Linux'
+    alias ls='ls --color=auto'
+    ;;
+  'FreeBSD')
+    OS='FreeBSD'
+    alias ls='ls -G'
+    ;;
+  'WindowsNT')
+    OS='Windows'
+    ;;
+  'Darwin')
+    OS='Mac'
+    ;;
+  'SunOS')
+    OS='Solaris'
+    ;;
+  'AIX') ;;
+  *) ;;
+esac
+
+CNF_EXECUTABLE=./configs/executable
+CNF_PREINST=./configs/preinst
+CNF_POSTINST=./configs/postinst
+CNF_PRERM=./configs/prerm
+CNF_POSTRM=./configs/postrm
+DEB_DIR="deb"
+DEB_TMP_DIR="debinstall"
+ARCH=all
+PACKAGE_VERSION="1.0"
+MAINTAINER="unknown developer"
+DESCRIPTION="very important package"
+BUILD_NUMBER="0"
+VERBOSE=0
+DEPENDS=
+ENV_FILE=.env
+USER=nodejs
+SD_DOC=
+SD_WRK_DIR=
+SD_EXEC_START=/usr/bin/node
+SD_RESTART=
+
+for i in "$@"; do
+  case $i in
+    --architecture=*)
+      # Set the architecture of the Debian package
+      ARCH="${i#*=}"
+      shift
+      ;;
+    --v=*)
+      PACKAGE_VERSION="${i#*=}"
+      shift # past argument=value
+      ;;
+    --b=*)
+      BUILD_NUMBER="${i#*=}"
+      shift # past argument=value
+      ;;
+    --n=*)
+      PACKAGE_NAME="${i#*=}"
+      shift
+      ;;
+    --sources=*)
+      DIR="${i#*=}"
+      shift
+      ;;
+    --desc=*)
+      DESCRIPTION="${i#*=}"
+      shift
+      ;;
+    --verbose=*)
+      VERBOSE="${i#*=}"
+      shift
+      ;;
+    --deb-dir=*)
+      DEB_DIR="${i#*=}"
+      shift
+      ;;
+    --maintainer=*)
+      MAINTAINER="${i#*=}"
+      shift
+      ;;
+    --depends=*)
+      DEPENDS="${i#*=}"
+      shift
+      ;;
+    --env-file=*)
+      ENV_FILE="${i#*=}"
+      shift
+      ;;
+    --sd-env=*)
+      SD_ENV="${i#*=}"
+      shift
+      ;;
+    --user=*)
+      USER="${i#*=}"
+      shift
+      ;;
+    --group=*)
+      GROUP="${i#*=}"
+      shift
+      ;;
+    --sd-wrkdir=*)
+      SD_WRK_DIR="${i#*=}"
+      shift
+      ;;
+    --sd-execstart=*)
+      SD_EXEC_START="${i#*=}"
+      shift
+      ;;
+    --sd-doc=*)
+      SD_DOC="${i#*=}"
+      shift
+      ;;
+    --sd-restart=*)
+      SD_RESTART="${i#*=}"
+      shift
+      ;;
+    --cnf-executable*)
+      CNF_EXECUTABLE="${i#*=}"
+      shift
+      ;;
+    --cnf-preinst*)
+      CNF_PREINST="${i#*=}"
+      shift
+      ;;
+    --cnf-postinst*)
+      CNF_POSTINST="${i#*=}"
+      shift
+      ;;
+    --cnf-postrm*)
+      CNF_POSTRM="${i#*=}"
+      shift
+      ;;
+    --cnf-prerm*)
+      CNF_PRERM="${i#*=}"
+      shift
+      ;;
+    --exec-command*)
+      EXEC_COMMAND="${i#*=}"
+      shift
+      ;;
+    -*|--*)
+      echo "Unknown option $i"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
+
+log() {
+  echo 'Progress:' "$@"
+}
+warn() {
+  echo 'WARN:' "$@"
+}
+debug() {
+  if [ "$VERBOSE" -eq 1 ]; then
+    echo 'DEBUG:' "$@"
+  fi
+}
+
+serialize() {
+  : "${1:?'Template file was not defined'}"
+  : "${2:?'Permissions not defined'}"
+  declare -r file="$1"
+  declare -r permissions="$2"
+
+  escape() {
+    sed -e 's/[]\/$*.^|[]/\\&/g' -e 's/&/\\&/g' <<< "$@"
+  }
+
+  sed -i "s/{{ PACKAGE_NAME }}/$(escape "$PACKAGE_NAME")/g" "$file"
+  sed -i "s/{{ PACKAGE_VERSION }}/$(escape "$PACKAGE_VERSION")/g" "$file"
+  sed -i "s/{{ DESCRIPTION }}/$(escape "$DESCRIPTION")/g" "$file"
+  sed -i "s/{{ MAINTAINER }}/$(escape "$MAINTAINER")/g" "$file"
+  sed -i "s/{{ DEPENDS }}/$(escape "$DEPENDS")/g" "$file"
+  sed -i "s/{{ ARCH }}/$(escape "$ARCH")/g" "$file"
+  sed -i "s/{{ USER }}/$(escape "$USER")/g" "$file"
+  sed -i "s/{{ GROUP }}/$(escape "$GROUP")/g" "$file"
+  sed -i "s/{{ WRK_DIR }}/$(escape "$SD_WRK_DIR")/g" "$file"
+
+  chmod "$permissions" "$file"
+}
+
+# Create output dir
+mkdir $DEB_DIR
+
+# Set deb/working dirs and deb name
+DEB_NAME=$PACKAGE_NAME"_"$PACKAGE_VERSION"~"$BUILD_NUMBER"_"$ARCH".deb"
+SD_WRK_DIR="/opt/$PACKAGE_NAME/app"
+
+# remove folder if present
+#[ -d $DEB_TMP_DIR ] && rm -rf $DEB_TMP_DIR
+#[ -d target ] && rm -rf target
+
+# Create the folders in the fake root folder
+mkdir $DEB_TMP_DIR
+mkdir $DEB_TMP_DIR/DEBIAN/
+mkdir -p $DEB_TMP_DIR/opt/$PACKAGE_NAME
+
+# Copy all the files to the correct folders
+cp -r $DIR/* $DEB_TMP_DIR/opt/$PACKAGE_NAME/
+
+# Copy preinst file
+cp $CNF_PREINST $DEB_TMP_DIR/DEBIAN/preinst
+serialize "$DEB_TMP_DIR/DEBIAN/preinst" '0755'
+# Copy preinst file
+cp $CNF_POSTINST $DEB_TMP_DIR/DEBIAN/postinst
+serialize "$DEB_TMP_DIR/DEBIAN/postinst" '0755'
+# Copy prerm file
+cp $CNF_PRERM $DEB_TMP_DIR/DEBIAN/prerm
+serialize "$DEB_TMP_DIR/DEBIAN/prerm" '0755'
+# Copy postrm file
+cp $CNF_POSTRM $DEB_TMP_DIR/DEBIAN/postrm
+serialize "$DEB_TMP_DIR/DEBIAN/postrm" '0755'
+
+# Create and configure control file
+touch $DEB_TMP_DIR/DEBIAN/control
+CONTROL_TMP="Package: $PACKAGE_NAME
+Version: $PACKAGE_VERSION.$BUILD_NUMBER
+Section: base
+Depends: $DEPENDS
+Architecture: $ARCH
+Priority: optional
+Maintainer: $MAINTAINER
+Description: $DESCRIPTION"
+echo "$CONTROL_TMP" >> $DEB_TMP_DIR/DEBIAN/control
+
+# Create and configure systemd.service file
+mkdir -p $DEB_TMP_DIR/lib/systemd/system
+touch $DEB_TMP_DIR/lib/systemd/system/$PACKAGE_NAME.service
+SD_TMP="[Unit]
+Description=$DESCRIPTION
+Documentation=$SD_DOC
+After=network.target
+
+[Service]
+EnvironmentFile=$SD_WRK_DIR/$ENV_FILE
+$(
+for i in $(echo "$SD_ENV" | sed "s/,/ /g")
+do
+  echo "Environment=$i"
+done
+)
+Type=simple
+User=$SD_USER
+WorkingDirectory=$SD_WRK_DIR
+ExecStart=$SD_EXEC_START
+Restart=$SD_RESTART
+
+[Install]
+WantedBy=multi-user.target"
+echo "$SD_TMP" >> $DEB_TMP_DIR/lib/systemd/system/$PACKAGE_NAME.service
+serialize "$DEB_TMP_DIR/lib/systemd/system/$PACKAGE_NAME.service" '0644'
+
+# Calculate md5sums
+debug 'Calculating md5 sums'
+# Debian/Ubuntu
+if hash md5sum 2>/dev/null; then
+  find "$DEB_TMP_DIR" -path "$DEB_TMP_DIR/DEBIAN" -prune -o -type f -print0 | xargs -0 md5sum >> "$DEB_TMP_DIR/DEBIAN/md5sums"
+# OSX
+elif hash md5 2>/dev/null; then
+  find "$DEB_TMP_DIR" -path "$DEB_TMP_DIR/DEBIAN" -prune -o -type f -print0 | {
+    while IFS= read -r -d '' file; do
+      echo "$(md5 -q "$file") $file" >> "$DEB_TMP_DIR/DEBIAN/md5sums"
+    done
+  }
+# OSX with `brew install gmd5sum`
+elif hash gmd5sum 2>/dev/null; then
+  find "$DEB_TMP_DIR" -path "$DEB_TMP_DIR/DEBIAN" -prune -o -type f -print0 | xargs -0 gmd5sum >> "$DEB_TMP_DIR/DEBIAN/md5sums"
+# Oh dear...
+else
+  warn 'Unable to find suitable md5 sum program. No md5sums calculated.'
+fi
+
+# strip the build dirname from the Debian package and then strip the leading slash again
+if [ "$OS" == "Linux" ]; then
+  sed -i s:/:: "$DEB_TMP_DIR/DEBIAN/md5sums"
+else
+  sed -i '' s:/:: "$DEB_TMP_DIR/DEBIAN/md5sums"
+fi
+
+log 'Building...'
+fakeroot dpkg-deb -Z gzip --build $DEB_TMP_DIR $DEB_DIR/$DEB_NAME > '/dev/null'
+log 'Debian package built'
+
+# cleanup
+if [ "$OS" == "Windows" ]; then
+  rd -r $DEB_TMP_DIR
+else
+  rm -rf $DEB_TMP_DIR
+fi
+
+exit 0

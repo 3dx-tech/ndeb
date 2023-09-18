@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+
+for i in "$@"; do
+  case $i in
+    --pkg-name=*)
+      # Set the architecture of the Debian package
+      PACKAGE_NAME="${i#*=}"
+      shift
+      ;;
+    *)
+      ;;
+  esac
+done
+
+declare -r SERVICE_NAME=$PACKAGE_NAME
+
+if hash systemctl 2> /dev/null; then
+  systemctl disable "$SERVICE_NAME.service" && \
+  systemctl stop "$SERVICE_NAME.service" || \
+  echo "$SERVICE_NAME wasn't even running!"
+elif hash service 2> /dev/null; then
+  service "$SERVICE_NAME" stop || echo "$SERVICE_NAME wasn't even running!"
+elif hash stop 2> /dev/null; then
+  stop "$SERVICE_NAME" || echo "$SERVICE_NAME wasn't even running!"
+elif hash update-rc.d 2> /dev/null; then
+  {
+    update-rc.d "$SERVICE_NAME" remove && \
+    "/etc/init.d/$SERVICE_NAME" stop
+  } || "$SERVICE_NAME wasn't even running!"
+else
+  echo "Your system does not appear to use upstart, systemd or sysv, so $SERVICE_NAME could not be stopped"
+  echo 'Unless these systems were removed since install, no processes have been left running'
+fi

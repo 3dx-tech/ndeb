@@ -1,0 +1,34 @@
+{
+  "branches": ["master"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    [
+      "@semantic-release/gitlab",
+      {
+        "assets": [
+          { "path": "README.md", "label": "Documentation" }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/npm",
+      {
+        "pkgRoot": "./"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["package.json", "ndeb", "configs", "docs", "README.md", "CHANGELOG.md", "LICENCE"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ]
+  ]
+}

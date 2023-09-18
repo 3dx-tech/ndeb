@@ -1,0 +1,64 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+
+add_user() {
+  : "${1:?'User was not defined'}"
+  declare -r user="$1"
+  declare -r uid="$2"
+
+  if [ -z "$uid" ]; then
+    declare -r uid_flags=""
+  else
+    declare -r uid_flags="--uid $uid"
+  fi
+
+  declare -r group="${3:-$user}"
+  declare -r descr="${4:-No description}"
+  declare -r shell="${5:-/bin/false}"
+
+  if ! getent passwd | grep -q "^$user:"; then
+    echo "Creating system user: $user in $group with $descr and shell $shell"
+    useradd $uid_flags --gid $group --no-create-home --system --shell $shell -c "$descr" $user
+  fi
+}
+
+add_group() {
+  : "${1:?'Group was not defined'}"
+  declare -r group="$1"
+  declare -r gid="$2"
+
+  if [ -z "$gid" ]; then
+    declare -r gid_flags=""
+  else
+    declare -r gid_flags="--gid $gid"
+  fi
+
+  if ! getent group | grep -q "^$group:" ; then
+    echo "Creating system group: $group"
+    groupadd $gid_flags --system $group
+  fi
+}
+
+start_service () {
+  : "${1:?'Service name was not defined'}"
+  declare -r service_name="$1"
+
+  if hash systemctl 2> /dev/null; then
+    {
+      systemctl enable "$service_name.service" && \
+      systemctl start "$service_name.service"
+    } || echo "$service_name could not be registered or started"
+  else
+    echo 'Your system does not appear to use systemd, Upstart, or System V, so the service could not be started'
+  fi
+}
+
+add_group '{{ GROUP }}' ''
+add_user '{{ USER }}' '' '{{ GROUP }}' '{{ USER }} user-daemon' '/bin/false'
+
+mkdir -p '/var/log/{{ PACKAGE_NAME }}'
+chown -R '{{ USER }}:{{ GROUP }}' '/var/log/{{ PACKAGE_NAME }}'
+
+start_service '{{ PACKAGE_NAME }}'
