@@ -182,7 +182,9 @@ fi
 
 # --------------------
 #
-WRK_DIR="/opt/$PACKAGE_NAME"
+if [ -z "$WRK_DIR" ]; then
+  WRK_DIR="/opt/$PACKAGE_NAME"
+fi
 # --------------------
 # Set tmp variable for render
 TMP_VARS=$(echo "
