@@ -79,6 +79,10 @@ for i in "$@"; do
       DIR="${i#*=}"
       shift
       ;;
+    --wrk-dir=*)
+      WRK_DIR="${i#*=}"
+      shift
+      ;;
     --src=*)
       DIR="${i#*=}"
       shift
@@ -178,7 +182,7 @@ fi
 
 # --------------------
 #
-SD_WRK_DIR="/opt/$PACKAGE_NAME"
+WRK_DIR="/opt/$PACKAGE_NAME/app"
 # --------------------
 # Set tmp variable for render
 TMP_VARS=$(echo "
@@ -225,13 +229,13 @@ fi
 if [ ! -d "$DEB_TMP_DIR/DEBIAN/" ]; then
   mkdir "$DEB_TMP_DIR/DEBIAN/"
 fi
-if [ ! -d "$DEB_TMP_DIR/opt/$PACKAGE_NAME" ]; then
-  mkdir -p "$DEB_TMP_DIR/opt/$PACKAGE_NAME"
+if [ ! -d "$DEB_TMP_DIR/$WRK_DIR" ]; then
+  mkdir -p "$DEB_TMP_DIR/$WRK_DIR"
 fi
 # --------------------
 # Copy all the files to the correct folders
 #
-cp -a $DIR/. "$DEB_TMP_DIR/opt/$PACKAGE_NAME/"
+cp -a $DIR/. "$DEB_TMP_DIR/$WRK_DIR/"
 
 # --------------------
 # Copy preinst file
@@ -356,6 +360,9 @@ for i in "${SD_SERVICE_FIELDS[@]}"
 do
   echo "$i"
 done
+if [[ $(hasValueInArr "EnvironmentFile*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
+  echo "EnvironmentFile=$WRK_DIR/.env"
+fi
 if [[ $(hasValueInArr "Type*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
   echo "Type=$SD_SERVICE_TYPE"
 fi
@@ -363,10 +370,10 @@ if [[ $(hasValueInArr "User*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
   echo "User=$USER"
 fi
 if [[ $(hasValueInArr "WorkingDirectory*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
-  echo "WorkingDirectory=$SD_WRK_DIR"
+  echo "WorkingDirectory=$WRK_DIR"
 fi
 if [[ $(hasValueInArr "ExecStart*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
-  echo "ExecStart=$SD_SERVICE_EXEC_START $SD_WRK_DIR/index.js "
+  echo "ExecStart=$SD_SERVICE_EXEC_START $WRK_DIR/index.js "
 fi
 if [[ $(hasValueInArr "Restart*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
   echo "Restart=$SD_SERVICE_RESTART"
