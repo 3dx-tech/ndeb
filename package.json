@@ -1,25 +1,26 @@
 {
   "name": "ndeb",
   "version": "1.0.0",
-  "description": "Debian packaging for Node.js projects",
-  "author": "Artem Makovetskiy <a.makovetskiy@a1-systems.com>; Ivan Smirnov i.smirnov <a.makovetskiy@a1-systems.com>;",
+  "description": "Utility for creating Debian (.deb) packages for NodeJS.",
+  "author": "https://github.com/3dx-tech",
   "bin": {
     "ndeb": "bin/ndeb"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://git.a1s.tech/front/ndeb.git"
+    "url": "git+https://github.com/3dx-tech/ndeb.git"
   },
   "bugs": {
-    "url": "https://git.a1s.tech/front/ndeb/issues"
+    "url": "https://github.com/3dx-tech/ndeb/issues"
   },
   "preferGlobal": true,
   "private": false,
   "license": "MIT",
-  "homepage": "https://git.a1s.tech/front/ndeb",
+  "homepage": "https://github.com/3dx-tech/ndeb",
   "files": [
     "bin/ndeb",
     "configs",
+    "utils",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

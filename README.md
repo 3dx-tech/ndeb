@@ -1,6 +1,6 @@
 # ndeb
 
-Utility to aid in creating Debian (.deb) packages.
+Utility to aid in creating Debian (.deb) packages for NodeJS.
 
 ### Install
 `yarn add ndeb`

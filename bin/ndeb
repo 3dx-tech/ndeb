@@ -31,7 +31,7 @@ function dir {
       [[ $src != /* ]] && src="$dir/$src"
     done
     cd -P "$(dirname "$src")"
-    echo "$(pwd)/$(basename "$src")"
+    echo "$(pwd)/$(basename "$src")/.."
   fi
 }
 
