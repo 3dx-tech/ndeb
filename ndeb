@@ -99,10 +99,6 @@ for i in "$@"; do
       DEPENDS="${i#*=}"
       shift
       ;;
-    --env-file=*)
-      ENV_FILE="${i#*=}"
-      shift
-      ;;
     --user=*)
       USER="${i#*=}"
       shift
@@ -236,6 +232,7 @@ fi
 # Copy all the files to the correct folders
 #
 cp -a $DIR/. "$DEB_TMP_DIR/opt/$PACKAGE_NAME/"
+
 # --------------------
 # Copy preinst file
 #
