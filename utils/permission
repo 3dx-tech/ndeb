@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -eo pipefail
+
+# --------------------
+# 𝘕𝘰𝘵𝘪𝘤𝘦:
+#
+# 𝘛𝘩𝘦 𝘱𝘦𝘳𝘮𝘪𝘴𝘴𝘪𝘰𝘯 𝘧𝘶𝘯𝘤𝘵𝘪𝘰𝘯
+# 𝘧𝘰𝘳 𝘴𝘦𝘵𝘵𝘪𝘯𝘨 𝘱𝘦𝘳𝘮𝘪𝘴𝘴𝘪𝘰𝘯 𝘣𝘺 𝘤𝘩𝘮𝘰𝘥
+# --------------------
+
+# --------------------
+# Use permission "0755" "filename"
+function permission {
+  : "${1:?'Template file was not defined'}"
+  : "${2:?'Permissions not defined'}"
+
+  declare -r permission="$1"
+  declare -r file="$2"
+
+  chmod -R "$permission" "$file"
+}
+# --------------------

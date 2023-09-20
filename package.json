@@ -4,7 +4,7 @@
   "description": "Debian packaging for Node.js projects",
   "author": "Artem Makovetskiy <a.makovetskiy@a1-systems.com>; Ivan Smirnov i.smirnov <a.makovetskiy@a1-systems.com>;",
   "bin": {
-    "ndeb": "./ndeb"
+    "ndeb": "bin/ndeb"
   },
   "repository": {
     "type": "git",
@@ -18,7 +18,7 @@
   "license": "MIT",
   "homepage": "https://git.a1s.tech/front/ndeb",
   "files": [
-    "ndeb",
+    "bin/ndeb",
     "configs",
     "README.md",
     "CHANGELOG.md",

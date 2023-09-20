@@ -1,0 +1,35 @@
+#!/bin/bash
+
+set -eo pipefail
+
+# --------------------
+# 𝘕𝘰𝘵𝘪𝘤𝘦:
+#
+# 𝘋𝘦𝘧𝘢𝘶𝘭𝘵 𝘷𝘢𝘳𝘪𝘢𝘣𝘭𝘦𝘴
+# 𝘢𝘯𝘥 𝘤𝘰𝘯𝘧𝘪𝘨𝘶𝘳𝘦𝘴
+# --------------------
+
+# --------------------
+export PRIORITY=optional
+export SECTION=base
+export DEB_DIR=deb
+export DEB_TMP_DIR=debinstall
+export ARCH=all
+export PACKAGE_VERSION=1.0
+export MAINTAINER=
+export DESCRIPTION=
+export BUILD_NUMBER=
+export VERBOSE=0
+export DEPENDS=
+export ENV_FILE=.env
+export USER=nodejs
+export GROUP=
+
+# Variables for systemd.service file
+export SD_UNIT_AFTER=network.targe
+export SD_DIR=/lib/systemd/system
+export SD_SERVICE_EXEC_START=/usr/bin/node
+export SD_SERVICE_TYPE=simple
+export SD_SERVICE_RESTART=on-failure
+export SD_INSTALL_WANTED_BY=multi-user.target
+# --------------------

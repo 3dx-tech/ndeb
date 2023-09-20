@@ -34,10 +34,10 @@ case "$1" in
   upgrade|remove|failed-upgrade|abort-upgrade|abort-install|disappear)
     ;;
   purge)
-    delete_user '{{ USER }}'
-    delete_group '{{ GROUP }}'
+    delete_user '%USER%'
+    delete_group '%GROUP%'
 
-    rm -rf '/var/log/{{ PACKAGE_NAME }}'
+    rm -rf '/var/log/%PACKAGE_NAME%'
     ;;
   *)
     echo "postinst called with unknown argument '$1'"

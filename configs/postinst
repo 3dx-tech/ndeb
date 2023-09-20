@@ -55,10 +55,10 @@ start_service () {
   fi
 }
 
-add_group '{{ GROUP }}' ''
-add_user '{{ USER }}' '' '{{ GROUP }}' '{{ USER }} user-daemon' '/bin/false'
+add_group '%GROUP%' ''
+add_user '%USER%' '' '%GROUP%' '%USER% user-daemon' '/bin/false'
 
-mkdir -p '/var/log/{{ PACKAGE_NAME }}'
-chown -R '{{ USER }}:{{ GROUP }}' '/var/log/{{ PACKAGE_NAME }}'
+mkdir -p '/var/log/%PACKAGE_NAME%'
+chown -R '%USER%:%GROUP%' '/var/log/%PACKAGE_NAME%'
 
-start_service '{{ PACKAGE_NAME }}'
+start_service '%PACKAGE_NAME%'

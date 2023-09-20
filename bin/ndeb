@@ -1,0 +1,429 @@
+#!/bin/bash
+
+set -eo pipefail
+
+function dir {
+  # --------------------
+  # 𝘕𝘰𝘵𝘪𝘤𝘦:
+  #
+  # 𝘋𝘦𝘧𝘢𝘶𝘭𝘵 𝘷𝘢𝘳𝘪𝘢𝘣𝘭𝘦𝘴
+  # 𝘢𝘯𝘥 𝘤𝘰𝘯𝘧𝘪𝘨𝘶𝘳𝘦𝘴
+  # --------------------
+
+  declare src="$1"
+  declare -i has_readlink
+
+  if readlink -f "$0" &> /dev/null; then
+    has_readlink=1
+  else
+    has_readlink=0
+  fi
+
+  declare -r has_readlink
+
+  if [ "$has_readlink" -eq 1 ]; then
+    readlink -f "$src"
+  else
+    declare dir=
+    while [ -h "$src" ]; do
+      dir="$(cd -P "$( dirname "$src")" && pwd)"
+      src="$(readlink "$src")"
+      [[ $src != /* ]] && src="$dir/$src"
+    done
+    cd -P "$(dirname "$src")"
+    echo "$(pwd)/$(basename "$src")"
+  fi
+}
+
+# --------------------
+# Set CUR_DIR variable
+#
+CUR_DIR="$(dirname "$(dir "${BASH_SOURCE[0]}")")"
+declare -a SD_UNIT_FIELDS=()
+declare -a SD_SERVICE_FIELDS=()
+declare -a SD_INSTALL_FIELDS=()
+declare -a CONTROL_FIELDS=()
+# --------------------
+# Sources utilities
+#
+source "$CUR_DIR/utils/default"
+source "$CUR_DIR/utils/logger"
+source "$CUR_DIR/utils/os"
+source "$CUR_DIR/utils/permission"
+source "$CUR_DIR/utils/render"
+source "$CUR_DIR/utils/hasValueInArr"
+
+# --------------------
+# Serialize args
+#
+for i in "$@"; do
+  case $i in
+    --a=*)
+      # Set the architecture of the Debian package
+      ARCH="${i#*=}"
+      shift
+      ;;
+    --b=*)
+      BUILD_NUMBER="${i#*=}"
+      shift # past argument=value
+      ;;
+    --n=*)
+      PACKAGE_NAME="${i#*=}"
+      shift
+      ;;
+    --pkg-name=*)
+      PACKAGE_NAME="${i#*=}"
+      shift
+      ;;
+    --dir=*)
+      DIR="${i#*=}"
+      shift
+      ;;
+    --src=*)
+      DIR="${i#*=}"
+      shift
+      ;;
+    --verbose)
+      VERBOSE=1
+      shift
+      ;;
+    --deb-dir=*)
+      DEB_DIR="${i#*=}"
+      shift
+      ;;
+    --maintainer=*)
+      MAINTAINER="${i#*=}"
+      shift
+      ;;
+    --depends=*)
+      DEPENDS="${i#*=}"
+      shift
+      ;;
+    --env-file=*)
+      ENV_FILE="${i#*=}"
+      shift
+      ;;
+    --user=*)
+      USER="${i#*=}"
+      shift
+      ;;
+    --group=*)
+      GROUP="${i#*=}"
+      shift
+      ;;
+    --desc=*)
+      DESCRIPTION="${i#*=}"
+      shift
+      ;;
+    --f-preinst=*)
+      F_PREINST="${i#*=}"
+      shift
+      ;;
+    --f-postinst=*)
+      F_POSTINST="${i#*=}"
+      shift
+      ;;
+    --f-postrm=*)
+      F_POSTRM="${i#*=}"
+      shift
+      ;;
+    --f-control=*)
+      F_CONTROL="${i#*=}"
+      shift
+      ;;
+    --f-prerm=*)
+      F_PRERM="${i#*=}"
+      shift
+      ;;
+    --f-systemd=*)
+      F_SYSTEMD="${i#*=}"
+      shift
+      ;;
+    --control@*=*)
+      control_field=${i%=*}
+      control_field_val=${i#*=}
+      CONTROL_FIELDS+=("${control_field//"--control@"/}=${control_field_val#*=}")
+      shift
+      ;;
+    --sd-unit@*=*)
+      sd_unit_field=${i%=*}
+      sd_unit_field_val=${i#*=}
+      SD_UNIT_FIELDS+=("${sd_unit_field//"--sd-unit@"/}=${sd_unit_field_val#*=}")
+      shift
+      ;;
+    --sd-service@*=*)
+      sd_service_field=${i%=*}
+      sd_service_field_val=${i#*=}
+      SD_SERVICE_FIELDS+=("${sd_service_field//"--sd-service@"/}=${sd_service_field_val#*=}")
+      shift
+      ;;
+    --sd-install@*=*)
+      sd_install_field=${i%=*}
+      sd_install_field_val=${i#*=}
+      SD_SERVICE_FIELDS+=("${sd_install_field//"--sd-install@"/}=${sd_install_field_val#*=}")
+      shift
+      ;;
+    -*|--*)
+      echo "Unknown option $i"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
+# --------------------
+# Set deb name
+#
+if [ -v "$BUILD_NUMBER" ]; then
+ DEB_NAME=$PACKAGE_NAME"_"$PACKAGE_VERSION"-"$BUILD_NUMBER"_"$ARCH".deb"
+else
+ DEB_NAME=$PACKAGE_NAME"_"$PACKAGE_VERSION"."$ARCH".deb"
+fi
+
+# --------------------
+#
+SD_WRK_DIR="/opt/$PACKAGE_NAME/app"
+# --------------------
+# Set tmp variable for render
+TMP_VARS=$(echo "
+$(
+if [ -n "$BUILD_NUMBER" ]; then
+ echo "BUILD_NUMBER=$BUILD_NUMBER,"
+fi
+if [ -n "$PACKAGE_NAME" ]; then
+ echo "PACKAGE_NAME=$PACKAGE_NAME,"
+fi
+if [ -n "$DEB_NAME" ]; then
+ echo "DEB_NAME=$DEB_NAME,"
+fi
+if [ -n "$DEPENDS" ]; then
+ echo "DEPENDS=$DEPENDS,"
+fi
+if [ -n "$MAINTAINER" ]; then
+ echo "MAINTAINER=$MAINTAINER,"
+fi
+if [ -n "$USER" ]; then
+ echo "USER=$USER,"
+fi
+if [ -n "$GROUP" ]; then
+ echo "GROUP=$GROUP,"
+fi
+)
+ARCH=$ARCH,
+DIR=$DIR,
+DEB_DIR=$DEB_DIR
+" | tr -d '\n' )
+# --------------------
+# Create output dir
+#
+mkdir $DEB_DIR
+
+# --------------------
+# Create the folders in the fake root folder
+#
+mkdir "$DEB_TMP_DIR"
+mkdir "$DEB_TMP_DIR/DEBIAN/"
+mkdir -p "$DEB_TMP_DIR/opt/$PACKAGE_NAME"
+
+# --------------------
+# Copy all the files to the correct folders
+#
+cp -a $DIR/. "$DEB_TMP_DIR/opt/$PACKAGE_NAME/"
+# --------------------
+# Copy preinst file
+#
+if [ -z "$F_PREINST" ]; then
+  F_PREINST=$CUR_DIR/configs/preinst
+fi
+cp $F_PREINST "$DEB_TMP_DIR/DEBIAN/preinst"
+render "$TMP_VARS" "$DEB_TMP_DIR/DEBIAN/preinst"
+permission 0755 "$DEB_TMP_DIR/DEBIAN/preinst"
+debug $VERBOSE 'Serialize preinst file +done'
+
+# --------------------
+# Copy postinst file
+#
+# Set prerm template
+if [ -z "$F_POSTINST" ]; then
+  F_POSTINST=$CUR_DIR/configs/postinst
+fi
+cp $F_POSTINST "$DEB_TMP_DIR/DEBIAN/postinst"
+render "$TMP_VARS" "$DEB_TMP_DIR/DEBIAN/postinst"
+permission 0755 "$DEB_TMP_DIR/DEBIAN/postinst"
+debug $VERBOSE 'Serialize postinst file +done'
+# --------------------
+# Copy prerm file
+#
+if [ -z "$F_PRERM" ]; then
+  F_PRERM=$CUR_DIR/configs/prerm
+fi
+cp $F_PRERM "$DEB_TMP_DIR/DEBIAN/prerm"
+render "$TMP_VARS" "$DEB_TMP_DIR/DEBIAN/prerm"
+permission 0755 "$DEB_TMP_DIR/DEBIAN/prerm"
+debug $VERBOSE 'Serialize prerm file +done'
+
+# --------------------
+# Copy postrm file
+#
+if [ -z "$F_POSTRM" ]; then
+  F_POSTRM=$CUR_DIR/configs/postrm
+fi
+cp $F_POSTRM "$DEB_TMP_DIR/DEBIAN/postrm"
+debug $VERBOSE 'Copy postrm file +done'
+render "$TMP_VARS" "$DEB_TMP_DIR/DEBIAN/postrm"
+permission 0755 "$DEB_TMP_DIR/DEBIAN/postrm"
+debug $VERBOSE 'Serialize postrm file +done'
+
+# --------------------
+# Create and configure control file
+if [ -n "$F_CONTROL" ]; then
+  CONTROL_TMP=$(cat $F_CONTROL)
+  render "$TMP_VARS" "$DEB_TMP_DIR/DEBIAN/postrm"
+else
+  CONTROL_TMP="
+$(
+if [[ $(hasValueInArr "Package*" "${CONTROL_FIELDS[@]}") == 0 ]]; then
+  echo "Package: $PACKAGE_NAME"
+fi
+if [[ $(hasValueInArr "Version*" "${CONTROL_FIELDS[@]}") == 0 ]]; then
+  if [[ -n "$BUILD_NUMBER" ]]; then
+    echo "Version: $PACKAGE_VERSION.$BUILD_NUMBER"
+  else
+    echo "Version: $PACKAGE_VERSION"
+  fi
+fi
+if [[ $(hasValueInArr "Section*" "${CONTROL_FIELDS[@]}") == 0 ]]; then
+  echo "Section: $SECTION"
+fi
+if [[ $(hasValueInArr "Depends*" "${CONTROL_FIELDS[@]}") == 0 ]]; then
+  echo "Depends: $DEPENDS"
+fi
+if [[ $(hasValueInArr "Architecture*" "${CONTROL_FIELDS[@]}") == 0 ]]; then
+  echo "Architecture: $ARCH"
+fi
+if [[ $(hasValueInArr "Priority*" "${CONTROL_FIELDS[@]}") == 0 ]]; then
+  echo "Priority: $PRIORITY"
+fi
+if [[ $(hasValueInArr "Maintainer*" "${CONTROL_FIELDS[@]}") == 0 ]]; then
+  echo "Maintainer: $MAINTAINER"
+fi
+if [[ $(hasValueInArr "Description*" "${CONTROL_FIELDS[@]}") == 0 ]]; then
+ echo "Description: $DESCRIPTION"
+fi
+for i in "${CONTROL_FIELDS[@]}"
+do
+  echo "$i"
+done
+)"
+fi
+touch "$DEB_TMP_DIR/DEBIAN/control"
+permission 0755 "$DEB_TMP_DIR/DEBIAN/control"
+debug $VERBOSE "Create control file +done"
+echo "$CONTROL_TMP" >> $DEB_TMP_DIR/DEBIAN/control
+debug $VERBOSE "Pass template to control file +done"
+
+# --------------------
+# Create and configure systemd.service file
+F_SERVICE=$DEB_TMP_DIR$SD_DIR/$PACKAGE_NAME.service
+mkdir -p "$DEB_TMP_DIR$SD_DIR"
+touch $F_SERVICE
+debug $VERBOSE "Create file $DEB_TMP_DIR$SD_DIR/$PACKAGE_NAME.service +done"
+if [ -n "$F_SYSTEMD" ]; then
+  cat "$SD_TMP" >> $F_SERVICE
+  render "$TMP_VARS" $F_SERVICE
+else
+  SD_TMP="[Unit]
+$(
+if [[ $(hasValueInArr "Description*" "${SD_UNIT_FIELDS[@]}") == 0 ]]; then
+  echo "Description=$DESCRIPTION"
+fi
+for i in "${SD_UNIT_FIELDS[@]}"
+do
+  echo "$i"
+done
+if [[ $(hasValueInArr "After*" "${SD_UNIT_FIELDS[@]}") == 0 ]]; then
+  echo "After=$SD_UNIT_AFTER"
+fi
+)
+
+[Service]
+$(
+for i in "${SD_SERVICE_FIELDS[@]}"
+do
+  echo "$i"
+done
+if [[ $(hasValueInArr "Type*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
+  echo "Type=$SD_SERVICE_TYPE"
+fi
+if [[ $(hasValueInArr "User*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
+  echo "User=$USER"
+fi
+if [[ $(hasValueInArr "WorkingDirectory*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
+  echo "WorkingDirectory=$SD_WRK_DIR"
+fi
+if [[ $(hasValueInArr "ExecStart*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
+  echo "ExecStart=$SD_SERVICE_EXEC_START $SD_WRK_DIR/index.js "
+fi
+if [[ $(hasValueInArr "Restart*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
+  echo "Restart=$SD_SERVICE_RESTART"
+fi
+)
+
+[Install]
+$(
+for i in "${SD_INSTALL_FIELDS[@]}"
+do
+  echo "$i"
+done
+if [[ $(hasValueInArr "WantedBy*" "${SD_SERVICE_FIELDS[@]}") == 0 ]]; then
+  echo "WantedBy=$SD_INSTALL_WANTED_BY"
+fi
+)"
+echo "$SD_TMP" >> $F_SERVICE
+debug $VERBOSE "Pass system file template to $F_SERVICE file +done"
+fi
+permission "0644" $F_SERVICE
+debug $VERBOSE "Chmod 0644 $F_SERVICE file +done"
+
+# --------------------
+# Calculate md5sums
+debug $VERBOSE 'Calculating md5 sums +done'
+# Debian/Ubuntu
+if hash md5sum 2>/dev/null; then
+  find "$DEB_TMP_DIR" -path "$DEB_TMP_DIR/DEBIAN" -prune -o -type f -print0 | xargs -0 md5sum >> $DEB_TMP_DIR/DEBIAN/md5sums
+# OSX
+elif hash md5 2>/dev/null; then
+  find "$DEB_TMP_DIR" -path "$DEB_TMP_DIR/DEBIAN" -prune -o -type f -print0 | {
+    while IFS= read -r -d '' file; do
+      echo "$(md5 -q "$file") $file" >> "$DEB_TMP_DIR/DEBIAN/md5sums"
+    done
+  }
+# OSX with `brew install gmd5sum`
+elif hash gmd5sum 2>/dev/null; then
+  find "$DEB_TMP_DIR" -path "$DEB_TMP_DIR/DEBIAN" -prune -o -type f -print0 | xargs -0 gmd5sum >> $DEB_TMP_DIR/DEBIAN/md5sums
+# Oh dear...
+else
+  warn 'Unable to find suitable md5 sum program. No md5sums calculated.'
+fi
+
+# --------------------
+# strip the build dirname from the Debian package and then strip the leading slash again
+if [ "$(os)" == "Linux" ]; then
+  sed -i s:/:: "$DEB_TMP_DIR/DEBIAN/md5sums"
+else
+  sed -i '' s:/:: "$DEB_TMP_DIR/DEBIAN/md5sums"
+fi
+
+# --------------------
+log 'Building...'
+fakeroot dpkg-deb -Z gzip --build $DEB_TMP_DIR $DEB_DIR/$DEB_NAME > '/dev/null'
+log 'Debian package built'
+
+# --------------------
+# cleanup
+if [ "$VERBOSE" -eq 0 ]; then
+  rm -rf "$DEB_TMP_DIR"
+fi
+# --------------------
+exit 0
+# --------------------

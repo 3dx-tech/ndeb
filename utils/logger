@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -eo pipefail
+
+# --------------------
+# 𝘕𝘰𝘵𝘪𝘤𝘦:
+#
+# 𝘛𝘩𝘦 𝘭𝘰𝘨𝘨𝘦𝘳 𝘧𝘶𝘯𝘤𝘵𝘪𝘰𝘯𝘴
+# 𝘧𝘰𝘳 𝘱𝘳𝘪𝘯𝘵 𝘤𝘶𝘳𝘳𝘦𝘯𝘵𝘭𝘺
+# 𝘴𝘵𝘢𝘵𝘶𝘴 𝘴𝘵𝘢𝘨𝘦
+# --------------------
+
+GREEN=$'\e[0;32m'
+YELLOW=$'\e[1;33m'
+RED=$'\e[31m'
+
+# --------------------
+# Use log 'message...'
+function log {
+  echo "${GREEN}Progress:" "$@"
+}
+# Use warn 'message...'
+function warn {
+  echo "${RED}Warning:" "$@"
+}
+# Use 1 'message...'
+function debug {
+  if [ "$1" -eq 1 ]; then
+    echo "${YELLOW}Debug:" "$2"
+  fi
+}
+# --------------------
