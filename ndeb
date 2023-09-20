@@ -174,7 +174,7 @@ done
 # --------------------
 # Set deb name
 #
-if [ -v "$BUILD_NUMBER" ]; then
+if [ -n "$BUILD_NUMBER" ]; then
  DEB_NAME=$PACKAGE_NAME"_"$PACKAGE_VERSION"-"$BUILD_NUMBER"_"$ARCH".deb"
 else
  DEB_NAME=$PACKAGE_NAME"_"$PACKAGE_VERSION"."$ARCH".deb"
