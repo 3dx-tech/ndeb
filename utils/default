@@ -26,7 +26,7 @@ export USER=nodejs
 export GROUP=
 
 # Variables for systemd.service file
-export SD_UNIT_AFTER=network.targe
+export SD_UNIT_AFTER=network.target
 export SD_DIR=/lib/systemd/system
 export SD_SERVICE_EXEC_START=/usr/bin/node
 export SD_SERVICE_TYPE=simple
