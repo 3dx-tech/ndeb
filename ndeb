@@ -282,7 +282,7 @@ debug $VERBOSE 'Serialize postrm file +done'
 # Create and configure control file
 if [ -n "$F_CONTROL" ]; then
   CONTROL_TMP=$(cat $F_CONTROL)
-  render "$TMP_VARS" "$DEB_TMP_DIR/DEBIAN/postrm"
+  cp $F_CONTROL "$DEB_TMP_DIR/DEBIAN/control"
 else
   CONTROL_TMP="
 $(
