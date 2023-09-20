@@ -4,7 +4,7 @@
   "description": "Utility for creating Debian (.deb) packages for NodeJS.",
   "author": "https://github.com/3dx-tech",
   "bin": {
-    "ndeb": "bin/ndeb"
+    "ndeb": "ndeb"
   },
   "repository": {
     "type": "git",
@@ -18,7 +18,7 @@
   "license": "MIT",
   "homepage": "https://github.com/3dx-tech/ndeb",
   "files": [
-    "bin/ndeb",
+    "ndeb",
     "configs",
     "utils",
     "README.md",
