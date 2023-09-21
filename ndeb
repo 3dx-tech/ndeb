@@ -75,16 +75,16 @@ for i in "$@"; do
       PACKAGE_NAME="${i#*=}"
       shift
       ;;
-    --dir=*)
-      DIR="${i#*=}"
+    --sources=*)
+      SOURCES="${i#*=}"
       shift
       ;;
     --wrk-dir=*)
       WRK_DIR="${i#*=}"
       shift
       ;;
-    --src=*)
-      DIR="${i#*=}"
+    --s=*)
+      SOURCES="${i#*=}"
       shift
       ;;
     --verbose)
@@ -212,7 +212,6 @@ if [ -n "$GROUP" ]; then
 fi
 )
 ARCH=$ARCH,
-DIR=$DIR,
 DEB_DIR=$DEB_DIR
 " | tr -d '\n' )
 # --------------------
@@ -237,7 +236,11 @@ fi
 # --------------------
 # Copy all the files to the correct folders
 #
-cp -a $DIR/. "$DEB_TMP_DIR/$WRK_DIR/"
+for source in $(echo "$SOURCES" | sed "s/,/ /g")
+do
+  echo $source
+  cp -r $source "$DEB_TMP_DIR/$WRK_DIR"
+done
 
 # --------------------
 # Copy preinst file
