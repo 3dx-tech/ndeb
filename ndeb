@@ -238,7 +238,6 @@ fi
 #
 for source in $(echo "$SOURCES" | sed "s/,/ /g")
 do
-  echo $source
   cp -r $source "$DEB_TMP_DIR/$WRK_DIR"
 done
 
